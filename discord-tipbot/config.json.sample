@@ -1,0 +1,27 @@
+{"data": [
+    {
+        "discord": {
+            "token": "token"
+        },
+        "mysql": {
+            "db_host": "hostname",
+            "db_user": "user",
+            "db_pass": "pass",
+            "db": "database"
+        },
+        "rpc": {
+            "rpc_host": "hostname",
+            "rpc_port": "port",
+            "rpc_user": "user",
+            "rpc_pass": "pass"
+        },
+        "logging": {
+            "print_level": 3,
+            "file": "log.txt",
+            "file_level": 3
+        },
+        "owners": ["owners discord id"],
+        "prefix": "!",
+        "description": "Netcoin Tipbot"
+    }
+]}
