@@ -7,33 +7,6 @@ from utils import parsing, output
 # 0.2.0a-Rw: Aareon Sullivan 2017
 
 
-class Rpc():
-    def __init__(self, config):
-        self.config_rpc = config["rpc"]
-
-    def gettransactions(self, txid):
-        # Get host and port for RPC from the config
-        rpc_host = self.config_rpc["rpc_host"]
-        rpc_port = self.config_rpc["rpc_port"]
-        # Make the login information a tuple
-        rpc_credentials = (
-            self.config_rpc["rpc_user"], self.config_rpc["rpc_pass"])
-        # Set the url for connecting via RPC
-        serverURL = 'http://' + rpc_host + ':' + rpc_port
-        # Headers, because you can't connect with Netscape
-        headers = {'content-type': 'application/json'}
-
-        # Create the payload to send via RPC to the server
-        payload = json.dumps(
-            {"method": "gettransaction", "params": [txid], "jsonrpc": "2.0"})
-        # Connect to the url using our headers, send the payload, and tell the
-        # server who we are
-        response = requests.get(serverURL, headers=headers, data=payload,
-                                auth=(rpc_credentials))
-        # Return the server's reponse
-        return response.json()['result']
-
-
 class Query_db():
     def __init__(self, config):
         config_mysql = config["mysql"]
@@ -77,7 +50,7 @@ class Query_db():
         self.q_execute(query, "commit")
         return
 
-    def q_insert(self, query_dict, query_from):
+    def insert(self, query_dict, query_from):
         query = "INSERT INTO `" + query_from + "` ("
         for key, value in query_dict.items():
             query = query + "`" + key + "`, "
@@ -122,9 +95,7 @@ class Walletnotify:
         # Transaction ID
         self.txid = txid
 
-    def fetch_tx(self, txid):
-        # Get transaction information using RPC method "gettransaction (txid)"
-        transactions = rpc.gettransactions(txid)
+    def fetch_tx(self, txid, transactions):
         self.check_txs(transactions)
 
     def check_txs(self, transactions):
@@ -281,7 +252,7 @@ class Walletnotify:
             # Add staked amount to balance
             new_balance = float(
                 result_set["balance"]) + float(transaction["amount"])
-                
+
             # Get previous amount staked by user
             result_set = query.q_select(
                 ["staked"], {'snowflake': transaction["account"]}, "db", "fetchone")
@@ -302,13 +273,26 @@ class Walletnotify:
 
 
 if __name__ == "__main__":
-    # Set the passed argument on execution to a variable
     txid = str(sys.argv[1])
     config_path = os.getcwd()+"/walletnotify/walletnotify.json"
     config = parsing.parse_json(config_path)
-    # Instantiate classes
     notify = Walletnotify(config)
     query = Query_db(config)
-    rpc = Rpc(config)
-    # Begin the whole process
-    notify.fetch_tx(txid)
+
+    # Get transaction information from wallet
+    def gettransaction(self, txid):
+        config_rpc = config["rpc"]
+        rpc_host = config_rpc["rpc_host"]
+        rpc_port = config_rpc["rpc_port"]
+        rpc_credentials = (
+            config_rpc["rpc_user"], config_rpc["rpc_pass"])
+        serverURL = 'http://' + rpc_host + ':' + rpc_port
+        headers = {'content-type': 'application/json'}
+        payload = json.dumps(
+            {"method": "gettransaction", "params": [txid], "jsonrpc": "2.0"})
+        response = requests.get(serverURL, headers=headers, data=payload,
+                                auth=(rpc_credentials))
+        return response.json()['result']
+
+    transactions = gettransaction(txid)
+    notify.fetch_tx(txid, transactions)
