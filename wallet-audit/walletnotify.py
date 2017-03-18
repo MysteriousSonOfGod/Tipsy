@@ -280,7 +280,7 @@ if __name__ == "__main__":
     query = Query_db(config)
 
     # Get transaction information from wallet
-    def gettransaction(self, txid):
+    def gettransaction(config, txid):
         config_rpc = config["rpc"]
         rpc_host = config_rpc["rpc_host"]
         rpc_port = config_rpc["rpc_port"]
@@ -294,5 +294,5 @@ if __name__ == "__main__":
                                 auth=(rpc_credentials))
         return response.json()['result']
 
-    transactions = gettransaction(txid)
+    transactions = gettransaction(config, txid)
     notify.fetch_tx(txid, transactions)
