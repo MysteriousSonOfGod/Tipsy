@@ -5,7 +5,7 @@ import json
 import requests
 import os
 from utils import parsing, output
-# 0.2.0a-Rw: Aareon Sullivan 2017
+# 0.2.0a-Rw (comment-less): Aareon Sullivan 2017
 
 
 class Query_db():
@@ -72,10 +72,8 @@ class Query_db():
         return
 
     def execute(self, query, method):
-        # Create cursor and execute query
         cursor = self.connection.cursor(pymysql.cursors.DictCursor)
         cursor.execute(query)
-        # Follow up actions based on method passed
         if method == "commit":
             self.connection.commit()
             cursor.close()
@@ -93,97 +91,64 @@ class Walletnotify:
     def check_txs(self, config, txid, transactions):
         self.coin = config["coin"]
         self.txid = txid
-        # Loop through all transactions
+
         for transaction in transactions["details"]:
-            # Set confirmations to pass
             confirmations = transactions["confirmations"]
-            # Point transaction to appropriate function
+
             if transaction["category"] == "send":
                 self.check_send(transaction, confirmations)
+
             else:
                 self.check_received(transaction, confirmations)
 
     def check_send(self, transaction, confirmations):
         if confirmations == 0:
-            # Build dictionary and array for selecting user's balance in "db"
-            #"""SELECT balance WHERE snowflake = transaction["account"]"""
             result_set = query.select(
                 ["balance"], {'snowflake': transaction["account"]}, "db", "fetchone")
 
             rowcount = query.select(["txid"], {
                                       'txid': self.txid, 'account': transaction["account"]}, "unconfirmed", "rowcount")
 
-            # If the returned rowcount is less than 1
-            # Insert the transaction into "unconfirmed"
             if rowcount < 1:
-
-                #"""INSERT INTO "unconfirmed" (account, amount, category, txid) VALUES (
-                # transaction["account"], transaction["amount"],
-                # transaction["category"], self.txid)"""
                 query.({'account': transaction["account"], 'amount': transaction["amount"],
                                 'category': transaction["category"], 'txid': self.txid}, "unconfirmed")
 
-                # Create new balance from user's old balance minus the amount
-                # in send (by adding a negative number)
                 new_balance = float(
                     result_set["balance"]) + float(transaction["amount"])
 
-                # Update user's balance with new information
-                #"""UPDATE "db" SET balance = new_balance, lasttxid = self.txid WHERE snowflake = transaction["account"]"""
                 query.update({'snowflake': transaction["account"]}, {
                                'balance': new_balance, 'lasttxid': self.txid}, "db")
 
-                # Display message on completion with transaction account and
-                # new balance
                 message = """{}: SEND (unconfirmed); account: {},
                 new balance: {}, amount: {}""".format(self.coin, transaction["account"], new_balance, transaction["amount"])
                 output.success(message)
         else:
-            #"""DELETE FROM "unconfirmed"
-            # WHERE account = transaction["account"], amount = transaction["amount"],
-            # category = "transaction["category"], txid = self.txid"""
-            # If "send" transaction confirms, remove from "unconfirmed"
             query.delete({'account': transaction["account"], 'amount': transaction["amount"],
                             'category': transaction["category"], 'txid': self.txid}, "unconfirmed")
             message = """{}: SEND (confirmed); account: {},
             amount: {}""".format(self.coin, transaction["account"], transaction["amount"])
             output.success(message)
+
         return
 
     def check_received(self, transaction, confirmations):
         if confirmations == 0:
-            # Build dictionary and array for selecting transaction in "unconfirmed"
-            #"""SELECT txid WHERE txid = self.txid AND account = transaction["account"]"""
-            # Get number of rows that are identical to this query
             rowcount = query.select(["txid"], {
                                       'txid': self.txid, 'account': transaction["account"]}, "unconfirmed", "rowcount")
 
-            # If the returned rowcount is less than 1
-            # Insert the transaction into "unconfirmed"
             if rowcount == 1:
-
-                #"""INSERT INTO "unconfirmed" (account, amount, category, txid) VALUES (
-                # transaction["account"], transaction["amount"],
-                # transaction["category"], self.txid)"""
                 query.({'account': transaction["account"], 'amount': transaction["amount"],
                                 'category': transaction["category"], 'txid': self.txid}, "unconfirmed")
 
                 message = """{}: {} (unconfirmed); account: {},
                 amount: {}""".format(self.coin, transaction["category"].upper(), transaction["account"], transaction["amount"])
                 output.success(message)
-        else:
 
-            #"""DELETE FROM "unconfirmed"
-            # WHERE account = transaction["account"], amount = transaction["amount"],
-            # category = "transaction["category"], txid = self.txid"""
+        else:
             query.delete({'account': transaction["account"], 'amount': transaction["amount"],
                             'category': transaction["category"], 'txid': self.txid}, "unconfirmed")
 
-            # Calculate new balance and which columns to update_balance
-            # Check if transaction was generated (staked)
             if transaction["category"] == "generate":
-                # SELECT balance and staked from "db" WHERE snowflake is equal
-                # to transaction["account"]
                 result_set = query.select(["balance", "staked"], {
                                             'snowflake': transaction["account"]}, "db", "fetchone")
 
@@ -193,33 +158,22 @@ class Walletnotify:
                 new_staked = float(
                     result_set["balance"]) + float(transaction["amount"])
 
-                # Set dict for updating in case of generated (staked)
                 dict_for_column_update = {
                     'balance': new_balance, 'staked': new_staked, 'lasttxid': self.txid}
 
-                #"""UPDATE "db"
-                # SET balance = new_balance (staked = new_staked)
-                # WHERE snowflake = transaction["account"]"""
                 query.update(
                     {'snowflake': transaction["account"]}, dict_for_column_update, "db")
 
             else:
-                # SELECT balance from "db" WHERE snowflake is equal to
-                # transaction["account"]
                 result_set = query.select(
                     ["balance"], {'snowflake': transaction["account"]}, "db", "fetchone")
 
-                # If transaction category is "received"
                 new_balance = float(
                     result_set["balance"]) + float(transaction["amount"])
 
-                # Set dict for updating in case of "received"
                 dict_for_column_update = {
                     'balance': new_balance, 'lasttxid': self.txid}
 
-                #"""UPDATE "db"
-                # SET balance = new_balance (staked = new_staked)
-                # WHERE snowflake = transaction["account"]"""
                 query.update(
                     {'snowflake': transaction["account"]}, dict_for_column_update, "db")
 
@@ -229,8 +183,6 @@ class Walletnotify:
         return
 
     def update_balance(self, transaction):
-        # Build dictionary and array for selecting user's balance in "db"
-        #"""SELECT balance WHERE snowflake = transaction["account"]"""
         result_set = query.select(
             ["balance"], {'snowflake': transaction["account"]}, "db", "fetchone")
 
@@ -238,25 +190,18 @@ class Walletnotify:
             new_balance = float(
                 result_set["balance"]) + float(transaction["amount"])
 
-            # Update user's balance with new information
-            #"""UPDATE "db" SET balance = new_balance, lasttxid = self.txid WHERE snowflake = transaction["account"]"""
             query.update({'snowflake': transaction["account"]}, {
                            'balance': new_balance, 'lasttxid': self.txid}, "db")
         else:
-            # Add staked amount to balance
             new_balance = float(
                 result_set["balance"]) + float(transaction["amount"])
 
-            # Get previous amount staked by user
             result_set = query.select(
                 ["staked"], {'snowflake': transaction["account"]}, "db", "fetchone")
 
-            # Add transaction amount to previous amount staked by user
             new_staked = float(result_set["staked"]) + \
                 float(transaction["amount"])
 
-            # Update user's balance with new information
-            #"""UPDATE "db" SET balance = new_balance, lasttxid = self.txid WHERE snowflake = transaction["account"]"""
             query.update({'snowflake': transaction["account"]}, {'balance': new_balance, 'staked': new_staked,
                                                                    'lasttxid': self.txid}, "db")
 
@@ -273,7 +218,6 @@ if __name__ == "__main__":
     notify = Walletnotify()
     query = Query_db(config)
 
-    # Get transaction information from wallet
     def gettransaction(config, txid):
         config_rpc = config["rpc"]
         rpc_host = config_rpc["rpc_host"]

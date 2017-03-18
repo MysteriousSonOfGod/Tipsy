@@ -8,8 +8,8 @@ color = ['\033[1;31;40m', '\033[1;33;40m', '\033[1;32;40m', '\033[1;36;40m']
 
 message = ['[ERROR]   ', '[WARNING] ', '[SUCCESS] ', '[INFO]    ']
 
-def do_syn(string, var):
-    print(color[var]+message[var]+'\033[1;37;40m{0}'.format(string))
+def do_syn(string, i):
+    print(color[i]+message[i]+'\033[1;37;40m{0}'.format(string))
 
 
 def error(string):
